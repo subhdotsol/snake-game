@@ -35,29 +35,45 @@ async fn main() {
     let mut food = random_food(&snake);
     let mut last_move_time = get_time();
     let move_delay = 0.15;
+    let mut game_over = false;
 
     loop {
         clear_background(BLACK);
 
-        if is_key_pressed(KeyCode::Up) && dir != Direction::Down { dir = Direction::Up; }
-        if is_key_pressed(KeyCode::Down) && dir != Direction::Up { dir = Direction::Down; }
-        if is_key_pressed(KeyCode::Left) && dir != Direction::Right { dir = Direction::Left; }
-        if is_key_pressed(KeyCode::Right) && dir != Direction::Left { dir = Direction::Right; }
+        if !game_over {
+            if is_key_pressed(KeyCode::Up) && dir != Direction::Down { dir = Direction::Up; }
+            if is_key_pressed(KeyCode::Down) && dir != Direction::Up { dir = Direction::Down; }
+            if is_key_pressed(KeyCode::Left) && dir != Direction::Right { dir = Direction::Left; }
+            if is_key_pressed(KeyCode::Right) && dir != Direction::Left { dir = Direction::Right; }
 
-        if get_time() - last_move_time > move_delay {
-            last_move_time = get_time();
-            let mut new_head = snake[0];
-            match dir {
-                Direction::Up => new_head.y -= 1,
-                Direction::Down => new_head.y += 1,
-                Direction::Left => new_head.x -= 1,
-                Direction::Right => new_head.x += 1,
+            if get_time() - last_move_time > move_delay {
+                last_move_time = get_time();
+                let mut new_head = snake[0];
+                match dir {
+                    Direction::Up => new_head.y -= 1,
+                    Direction::Down => new_head.y += 1,
+                    Direction::Left => new_head.x -= 1,
+                    Direction::Right => new_head.x += 1,
+                }
+
+                if new_head.x < 0 || new_head.x >= GRID_SIZE || new_head.y < 0 || new_head.y >= GRID_SIZE || snake.contains(&new_head) {
+                    game_over = true;
+                } else {
+                    snake.insert(0, new_head);
+                    if new_head == food {
+                        food = random_food(&snake);
+                    } else {
+                        snake.pop();
+                    }
+                }
             }
-            snake.insert(0, new_head);
-            if new_head == food {
+        } else {
+            draw_text("GAME OVER! Press R to Restart", 40.0, 200.0, 30.0, WHITE);
+            if is_key_pressed(KeyCode::R) {
+                snake = vec![Point { x: 5, y: 5 }, Point { x: 4, y: 5 }, Point { x: 3, y: 5 }];
+                dir = Direction::Right;
                 food = random_food(&snake);
-            } else {
-                snake.pop();
+                game_over = false;
             }
         }
 
