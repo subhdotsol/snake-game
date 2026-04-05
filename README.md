@@ -1,4 +1,4 @@
-# Ishika Snake Game
+# Snake Game
 
 A simple Snake game implementation using the Rust programming language and the Macroquad game engine.
 
