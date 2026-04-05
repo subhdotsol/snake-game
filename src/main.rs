@@ -1,9 +1,61 @@
 use macroquad::prelude::*;
 
+const GRID_SIZE: i32 = 20;
+const CELL_SIZE: f32 = 20.0;
+
+#[derive(Clone, Copy, PartialEq)]
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+#[derive(PartialEq)]
+enum Direction {
+    Up, Down, Left, Right,
+}
+
 #[macroquad::main("Snake Game")]
 async fn main() {
+    let mut snake = vec![
+        Point { x: 5, y: 5 },
+        Point { x: 4, y: 5 },
+        Point { x: 3, y: 5 },
+    ];
+    let mut dir = Direction::Right;
+    let mut last_move_time = get_time();
+    let move_delay = 0.15;
+
     loop {
         clear_background(BLACK);
+
+        if is_key_pressed(KeyCode::Up) && dir != Direction::Down { dir = Direction::Up; }
+        if is_key_pressed(KeyCode::Down) && dir != Direction::Up { dir = Direction::Down; }
+        if is_key_pressed(KeyCode::Left) && dir != Direction::Right { dir = Direction::Left; }
+        if is_key_pressed(KeyCode::Right) && dir != Direction::Left { dir = Direction::Right; }
+
+        if get_time() - last_move_time > move_delay {
+            last_move_time = get_time();
+            let mut new_head = snake[0];
+            match dir {
+                Direction::Up => new_head.y -= 1,
+                Direction::Down => new_head.y += 1,
+                Direction::Left => new_head.x -= 1,
+                Direction::Right => new_head.x += 1,
+            }
+            snake.insert(0, new_head);
+            snake.pop();
+        }
+
+        for segment in &snake {
+            draw_rectangle(
+                segment.x as f32 * CELL_SIZE,
+                segment.y as f32 * CELL_SIZE,
+                CELL_SIZE,
+                CELL_SIZE,
+                GREEN,
+            );
+        }
+
         next_frame().await;
     }
 }
