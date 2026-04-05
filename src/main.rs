@@ -1,4 +1,4 @@
-use macroquad::prelude::*;
+use macroquad::{prelude::*, rand};
 
 const GRID_SIZE: i32 = 20;
 const CELL_SIZE: f32 = 20.0;
@@ -14,6 +14,16 @@ enum Direction {
     Up, Down, Left, Right,
 }
 
+fn random_food(snake: &Vec<Point>) -> Point {
+    loop {
+        let p = Point {
+            x: rand::gen_range(0, GRID_SIZE),
+            y: rand::gen_range(0, GRID_SIZE),
+        };
+        if !snake.contains(&p) { return p; }
+    }
+}
+
 #[macroquad::main("Snake Game")]
 async fn main() {
     let mut snake = vec![
@@ -22,6 +32,7 @@ async fn main() {
         Point { x: 3, y: 5 },
     ];
     let mut dir = Direction::Right;
+    let mut food = random_food(&snake);
     let mut last_move_time = get_time();
     let move_delay = 0.15;
 
@@ -43,18 +54,17 @@ async fn main() {
                 Direction::Right => new_head.x += 1,
             }
             snake.insert(0, new_head);
-            snake.pop();
+            if new_head == food {
+                food = random_food(&snake);
+            } else {
+                snake.pop();
+            }
         }
 
         for segment in &snake {
-            draw_rectangle(
-                segment.x as f32 * CELL_SIZE,
-                segment.y as f32 * CELL_SIZE,
-                CELL_SIZE,
-                CELL_SIZE,
-                GREEN,
-            );
+            draw_rectangle(segment.x as f32 * CELL_SIZE, segment.y as f32 * CELL_SIZE, CELL_SIZE, CELL_SIZE, GREEN);
         }
+        draw_rectangle(food.x as f32 * CELL_SIZE, food.y as f32 * CELL_SIZE, CELL_SIZE, CELL_SIZE, RED);
 
         next_frame().await;
     }
