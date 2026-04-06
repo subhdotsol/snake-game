@@ -28,58 +28,77 @@ enum Direction {
     Right,
 }
 
-/// Pick a random cell not occupied by snake, foods, or obstacles
-fn free_cell(snake: &[Point], foods: &[Point], obstacles: &[Point]) -> Point {
+/// Pick a random free cell (not on snake, food, or obstacles)
+fn random_food(snake: &[Point], food: &Point, obstacles: &[Point]) -> Point {
     loop {
         let p = Point {
             x: rand::gen_range(0, GRID_SIZE),
             y: rand::gen_range(0, GRID_SIZE),
         };
-        if !snake.contains(&p) && !foods.contains(&p) && !obstacles.contains(&p) {
+        if !snake.contains(&p) && p != *food && !obstacles.contains(&p) {
             return p;
         }
     }
 }
 
-/// Spawn 1-3 food items at random free cells
-fn spawn_foods(count: i32, snake: &[Point], foods: &mut Vec<Point>, obstacles: &[Point]) {
-    for _ in 0..count {
-        let p = free_cell(snake, foods, obstacles);
-        foods.push(p);
+fn initial_food(snake: &[Point], obstacles: &[Point]) -> Point {
+    loop {
+        let p = Point {
+            x: rand::gen_range(0, GRID_SIZE),
+            y: rand::gen_range(0, GRID_SIZE),
+        };
+        if !snake.contains(&p) && !obstacles.contains(&p) {
+            return p;
+        }
     }
 }
 
-/// Spawn a cluster of 1-5 connected obstacle blocks
-fn spawn_obstacle_cluster(snake: &[Point], foods: &[Point], obstacles: &mut Vec<Point>) {
-    let cluster_len = rand::gen_range(1_i32, 6); // 1 to 5 blocks
-    let start = free_cell(snake, foods, obstacles);
-    obstacles.push(start);
+/// Get a random shape pattern (offsets from anchor point)
+fn random_shape() -> Vec<(i32, i32)> {
+    match rand::gen_range(0_i32, 8) {
+        // horizontal line (3-5 blocks)
+        0 => { let len = rand::gen_range(3_i32, 6); (0..len).map(|i| (i, 0)).collect() }
+        // vertical line (3-5 blocks)
+        1 => { let len = rand::gen_range(3_i32, 6); (0..len).map(|i| (0, i)).collect() }
+        // L-shape
+        2 => vec![(0,0),(1,0),(2,0),(2,1),(2,2)],
+        // reverse L
+        3 => vec![(0,0),(0,1),(0,2),(1,0),(2,0)],
+        // T-shape
+        4 => vec![(0,0),(1,0),(2,0),(1,1),(1,2)],
+        // plus/cross
+        5 => vec![(1,0),(0,1),(1,1),(2,1),(1,2)],
+        // small square 2x2
+        6 => vec![(0,0),(1,0),(0,1),(1,1)],
+        // Z-shape
+        _ => vec![(0,0),(1,0),(1,1),(2,1)],
+    }
+}
 
-    let mut cur = start;
-    let dirs: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+/// Spawn a random shaped obstacle at a random location
+fn spawn_obstacle(snake: &[Point], food: &Point, obstacles: &mut Vec<Point>) {
+    // try up to 50 times to find a valid placement
+    for _ in 0..50 {
+        let shape = random_shape();
+        let anchor_x = rand::gen_range(1_i32, GRID_SIZE - 6);
+        let anchor_y = rand::gen_range(1_i32, GRID_SIZE - 6);
 
-    for _ in 1..cluster_len {
-        // try a random adjacent cell up to 10 times
-        let mut placed = false;
-        for _ in 0..10 {
-            let d = dirs[rand::gen_range(0_usize, 4)];
-            let next = Point { x: cur.x + d.0, y: cur.y + d.1 };
-            if next.x >= 0
-                && next.x < GRID_SIZE
-                && next.y >= 0
-                && next.y < GRID_SIZE
-                && !snake.contains(&next)
-                && !foods.contains(&next)
-                && !obstacles.contains(&next)
-            {
-                obstacles.push(next);
-                cur = next;
-                placed = true;
-                break;
-            }
-        }
-        if !placed {
-            break; // couldn't extend, stop cluster here
+        let cells: Vec<Point> = shape.iter()
+            .map(|(dx, dy)| Point { x: anchor_x + dx, y: anchor_y + dy })
+            .collect();
+
+        // check all cells are valid
+        let valid = cells.iter().all(|c| {
+            c.x >= 0 && c.x < GRID_SIZE
+            && c.y >= 0 && c.y < GRID_SIZE
+            && !snake.contains(c)
+            && *c != *food
+            && !obstacles.contains(c)
+        });
+
+        if valid {
+            obstacles.extend(cells);
+            return;
         }
     }
 }
@@ -92,15 +111,14 @@ async fn main() {
         Point { x: 3, y: 5 },
     ];
     let mut dir = Direction::Right;
-    let mut foods: Vec<Point> = Vec::new();
     let mut obstacles: Vec<Point> = Vec::new();
+    let mut food = initial_food(&snake, &obstacles);
     let mut last_move_time = get_time();
     let mut move_delay = 0.15_f64;
     let mut food_count = 0_u32;
     let mut game_over = false;
 
-    // Start with 1-3 fruits on the board
-    spawn_foods(rand::gen_range(1_i32, 4), &snake, &mut foods, &obstacles);
+
 
     loop {
         clear_background(Color::from_rgba(15, 15, 15, 255));
@@ -138,29 +156,26 @@ async fn main() {
                 } else {
                     snake.insert(0, new_head);
 
-                    // Check if head landed on any food
-                    if let Some(idx) = foods.iter().position(|f| *f == new_head) {
-                        foods.remove(idx);
+                    // Check if head landed on the food
+                    if new_head == food {
                         food_count += 1;
 
-                        // Every 2 fruits eaten → change speed AND spawn obstacle cluster
+                        // Every 2 fruits → change speed + spawn obstacle shape
                         if food_count % 2 == 0 {
-                            // Speed: randomly +5..+15% faster OR -5..-15% slower (truly random)
                             let pct = rand::gen_range(5_i32, 16) as f64 / 100.0;
                             if rand::gen_range(0_i32, 2) == 0 {
-                                move_delay -= move_delay * pct; // faster (lower delay)
+                                move_delay -= move_delay * pct;
                             } else {
-                                move_delay += move_delay * pct; // slower (higher delay)
+                                move_delay += move_delay * pct;
                             }
                             move_delay = move_delay.clamp(0.05, 0.30);
 
-                            // Spawn obstacle cluster (1-5 blocks)
-                            spawn_obstacle_cluster(&snake, &foods, &mut obstacles);
+                            // Spawn a random shaped obstacle
+                            spawn_obstacle(&snake, &food, &mut obstacles);
                         }
 
-                        // Respawn 1-3 fruits to replace eaten one
-                        let new_fruit_count = rand::gen_range(1_i32, 4);
-                        spawn_foods(new_fruit_count, &snake, &mut foods, &obstacles);
+                        // Spawn new single fruit
+                        food = random_food(&snake, &food, &obstacles);
                     } else {
                         snake.pop(); // didn't eat, remove tail
                     }
@@ -175,12 +190,11 @@ async fn main() {
                     Point { x: 3, y: 5 },
                 ];
                 dir = Direction::Right;
-                foods.clear();
                 obstacles.clear();
+                food = initial_food(&snake, &obstacles);
                 move_delay = 0.15;
                 food_count = 0;
                 game_over = false;
-                spawn_foods(rand::gen_range(1_i32, 4), &snake, &mut foods, &obstacles);
             }
         }
 
@@ -218,16 +232,14 @@ async fn main() {
             );
         }
 
-        // Draw all food items (red)
-        for food in &foods {
-            draw_rectangle(
-                OFFSET + food.x as f32 * CELL_SIZE,
-                OFFSET + food.y as f32 * CELL_SIZE,
-                CELL_SIZE,
-                CELL_SIZE,
-                RED,
-            );
-        }
+        // Draw food (single red block)
+        draw_rectangle(
+            OFFSET + food.x as f32 * CELL_SIZE,
+            OFFSET + food.y as f32 * CELL_SIZE,
+            CELL_SIZE,
+            CELL_SIZE,
+            RED,
+        );
 
         next_frame().await;
     }
