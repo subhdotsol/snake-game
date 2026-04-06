@@ -1,7 +1,18 @@
 use macroquad::{prelude::*, rand};
 
-const GRID_SIZE: i32 = 20;
-const CELL_SIZE: f32 = 20.0;
+const GRID_SIZE: i32 = 38; // 38 cells * 20px = 760px fills the 800px window
+const CELL_SIZE: f32 = 20.0; // snake & food size stays the same
+const OFFSET: f32 = 20.0;    // margin so border is visible
+const BORDER_THICKNESS: f32 = 3.0;
+
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "Snake Game".to_owned(),
+        window_width: 800,
+        window_height: 800,
+        ..Default::default()
+    }
+}
 
 #[derive(Clone, Copy, PartialEq)]
 struct Point {
@@ -29,7 +40,7 @@ fn random_food(snake: &Vec<Point>) -> Point {
     }
 }
 
-#[macroquad::main("Snake Game")]
+#[macroquad::main(window_conf)]
 async fn main() {
     let mut snake = vec![
         Point { x: 5, y: 5 },
@@ -43,7 +54,7 @@ async fn main() {
     let mut game_over = false;
 
     loop {
-        clear_background(BLACK);
+        clear_background(Color::from_rgba(15, 15, 15, 255));
 
         if !game_over {
             if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) && dir != Direction::Down {
@@ -103,19 +114,33 @@ async fn main() {
             }
         }
 
+        // Draw visible border around the game grid
+        let grid_px = GRID_SIZE as f32 * CELL_SIZE;
+        draw_rectangle_lines(
+            OFFSET - BORDER_THICKNESS,
+            OFFSET - BORDER_THICKNESS,
+            grid_px + BORDER_THICKNESS * 2.0,
+            grid_px + BORDER_THICKNESS * 2.0,
+            BORDER_THICKNESS * 2.0,
+            WHITE,
+        );
+
+        // Draw snake
         for (i, segment) in snake.iter().enumerate() {
             let color = if i == 0 { YELLOW } else { GREEN };
             draw_rectangle(
-                segment.x as f32 * CELL_SIZE,
-                segment.y as f32 * CELL_SIZE,
+                OFFSET + segment.x as f32 * CELL_SIZE,
+                OFFSET + segment.y as f32 * CELL_SIZE,
                 CELL_SIZE,
                 CELL_SIZE,
                 color,
             );
         }
+
+        // Draw food
         draw_rectangle(
-            food.x as f32 * CELL_SIZE,
-            food.y as f32 * CELL_SIZE,
+            OFFSET + food.x as f32 * CELL_SIZE,
+            OFFSET + food.y as f32 * CELL_SIZE,
             CELL_SIZE,
             CELL_SIZE,
             RED,
