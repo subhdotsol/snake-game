@@ -11,7 +11,10 @@ struct Point {
 
 #[derive(PartialEq)]
 enum Direction {
-    Up, Down, Left, Right,
+    Up,
+    Down,
+    Left,
+    Right,
 }
 
 fn random_food(snake: &Vec<Point>) -> Point {
@@ -20,7 +23,9 @@ fn random_food(snake: &Vec<Point>) -> Point {
             x: rand::gen_range(0, GRID_SIZE),
             y: rand::gen_range(0, GRID_SIZE),
         };
-        if !snake.contains(&p) { return p; }
+        if !snake.contains(&p) {
+            return p;
+        }
     }
 }
 
@@ -41,10 +46,22 @@ async fn main() {
         clear_background(BLACK);
 
         if !game_over {
-            if is_key_pressed(KeyCode::Up) && dir != Direction::Down { dir = Direction::Up; }
-            if is_key_pressed(KeyCode::Down) && dir != Direction::Up { dir = Direction::Down; }
-            if is_key_pressed(KeyCode::Left) && dir != Direction::Right { dir = Direction::Left; }
-            if is_key_pressed(KeyCode::Right) && dir != Direction::Left { dir = Direction::Right; }
+            if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) && dir != Direction::Down {
+                dir = Direction::Up;
+            }
+            if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S) && dir != Direction::Up {
+                dir = Direction::Down;
+            }
+            if is_key_pressed(KeyCode::Left)
+                || is_key_pressed(KeyCode::A) && dir != Direction::Right
+            {
+                dir = Direction::Left;
+            }
+            if is_key_pressed(KeyCode::Right)
+                || is_key_pressed(KeyCode::D) && dir != Direction::Left
+            {
+                dir = Direction::Right;
+            }
 
             if get_time() - last_move_time > move_delay {
                 last_move_time = get_time();
@@ -56,7 +73,12 @@ async fn main() {
                     Direction::Right => new_head.x += 1,
                 }
 
-                if new_head.x < 0 || new_head.x >= GRID_SIZE || new_head.y < 0 || new_head.y >= GRID_SIZE || snake.contains(&new_head) {
+                if new_head.x < 0
+                    || new_head.x >= GRID_SIZE
+                    || new_head.y < 0
+                    || new_head.y >= GRID_SIZE
+                    || snake.contains(&new_head)
+                {
                     game_over = true;
                 } else {
                     snake.insert(0, new_head);
@@ -70,17 +92,34 @@ async fn main() {
         } else {
             draw_text("GAME OVER! Press R to Restart", 40.0, 200.0, 30.0, WHITE);
             if is_key_pressed(KeyCode::R) {
-                snake = vec![Point { x: 5, y: 5 }, Point { x: 4, y: 5 }, Point { x: 3, y: 5 }];
+                snake = vec![
+                    Point { x: 5, y: 5 },
+                    Point { x: 4, y: 5 },
+                    Point { x: 3, y: 5 },
+                ];
                 dir = Direction::Right;
                 food = random_food(&snake);
                 game_over = false;
             }
         }
 
-        for segment in &snake {
-            draw_rectangle(segment.x as f32 * CELL_SIZE, segment.y as f32 * CELL_SIZE, CELL_SIZE, CELL_SIZE, GREEN);
+        for (i, segment) in snake.iter().enumerate() {
+            let color = if i == 0 { YELLOW } else { GREEN };
+            draw_rectangle(
+                segment.x as f32 * CELL_SIZE,
+                segment.y as f32 * CELL_SIZE,
+                CELL_SIZE,
+                CELL_SIZE,
+                color,
+            );
         }
-        draw_rectangle(food.x as f32 * CELL_SIZE, food.y as f32 * CELL_SIZE, CELL_SIZE, CELL_SIZE, RED);
+        draw_rectangle(
+            food.x as f32 * CELL_SIZE,
+            food.y as f32 * CELL_SIZE,
+            CELL_SIZE,
+            CELL_SIZE,
+            RED,
+        );
 
         next_frame().await;
     }
